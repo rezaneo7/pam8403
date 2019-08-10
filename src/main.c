@@ -72,6 +72,68 @@ void example_i2s_init(void)
 	 i2s_set_adc_mode(I2S_ADC_UNIT, I2S_ADC_CHANNEL);
 }
 
+void example_erase_flash(void)
+{
+#if RECORD_IN_FLASH_EN
+    printf("Erasing flash \n");
+    const esp_partition_t *data_partition = NULL;
+    data_partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA,
+            ESP_PARTITION_SUBTYPE_DATA_FAT, PARTITION_NAME);
+    if (data_partition != NULL) {
+        printf("partiton addr: 0x%08x; size: %d; label: %s\n", data_partition->address, data_partition->size, data_partition->label);
+    }
+    printf("Erase size: %d Bytes\n", FLASH_ERASE_SIZE);
+    ESP_ERROR_CHECK(esp_partition_erase_range(data_partition, 0, FLASH_ERASE_SIZE));
+#else
+    printf("Skip flash erasing...\n");
+#endif
+}
+
+void example_set_file_play_mode(void)
+{
+    i2s_set_clk(EXAMPLE_I2S_NUM, 16000, EXAMPLE_I2S_SAMPLE_BITS, 1);
+}
+
+void example_disp_buf(uint8_t* buf, int length)
+{
+#if EXAMPLE_I2S_BUF_DEBUG
+    printf("======\n");
+    for (int i = 0; i < length; i++) {
+        printf("%02x ", buf[i]);
+        if ((i + 1) % 8 == 0) {
+            printf("\n");
+        }
+    }
+    printf("======\n");
+#endif
+}
+
+void example_reset_play_mode(void)
+{
+    i2s_set_clk(EXAMPLE_I2S_NUM, EXAMPLE_I2S_SAMPLE_RATE, EXAMPLE_I2S_SAMPLE_BITS, EXAMPLE_I2S_CHANNEL_NUM);
+}
+
+int example_i2s_dac_data_scale(uint8_t* d_buff, uint8_t* s_buff, uint32_t len)
+{
+    uint32_t j = 0;
+#if (EXAMPLE_I2S_SAMPLE_BITS == 16)
+    for (int i = 0; i < len; i++) {
+        d_buff[j++] = 0;
+        d_buff[j++] = s_buff[i];
+    }
+    return (len * 2);
+#else
+    for (int i = 0; i < len; i++) {
+        d_buff[j++] = 0;
+        d_buff[j++] = 0;
+        d_buff[j++] = 0;
+        d_buff[j++] = s_buff[i];
+    }
+    return (len * 4);
+#endif
+}
+
+
 void example_i2s_adc_dac(void*arg)
 {
     const esp_partition_t *data_partition = NULL;
