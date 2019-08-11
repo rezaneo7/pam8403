@@ -1,4 +1,4 @@
-* The script in python provides an example of generating audio tables from `.wav` files.
+* The script in tools folder provides an example of generating audio tables from `.wav` files.
  just put the .wav file in tools folder and run script
 
 * In this example, the `wav` file must be in 16k/16bit mono format.
