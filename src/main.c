@@ -1,22 +1,25 @@
+#include <stdio.h>
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_spi_flash.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_partition.h"
 #include "driver/i2s.h"
 #include "driver/adc.h"
-#include "esp_spi_flash.h"
-#include "stdio.h"
-#include "string.h"
 #include "audio_example_file.h"
+#include "esp_adc_cal.h"
 
-
-static const char* TAG = "PAM";
-#define vRef 1100
+static const char* TAG = "ad/da";
+#define V_REF   1100
 #define ADC1_TEST_CHANNEL (ADC1_CHANNEL_7)
-#define PARTITION_NAME "storage"
 
+#define PARTITION_NAME   "storage"
 
+/*---------------------------------------------------------------
+                            EXAMPLE CONFIG
+---------------------------------------------------------------*/
 //enable record sound and save in flash
 #define RECORD_IN_FLASH_EN        (0)
 //enable replay recorded sound in flash
@@ -50,7 +53,10 @@ static const char* TAG = "PAM";
 #define FLASH_ADDR                (0x200000)
 
 
-void example_i2s_init(void)
+/**
+ * @brief I2S ADC/DAC mode init.
+ */
+void example_i2s_init()
 {
 	 int i2s_num = EXAMPLE_I2S_NUM;
 	 i2s_config_t i2s_config = {
@@ -61,8 +67,7 @@ void example_i2s_init(void)
 	    .channel_format = EXAMPLE_I2S_FORMAT,
 	    .intr_alloc_flags = 0,
 	    .dma_buf_count = 2,
-	    .dma_buf_len = 1024,
-	    .use_apll = 1,
+	    .dma_buf_len = 1024
 	 };
 	 //install and start i2s driver
 	 i2s_driver_install(i2s_num, &i2s_config, 0, NULL);
@@ -72,7 +77,10 @@ void example_i2s_init(void)
 	 i2s_set_adc_mode(I2S_ADC_UNIT, I2S_ADC_CHANNEL);
 }
 
-void example_erase_flash(void)
+/*
+ * @brief erase flash for recording
+ */
+void example_erase_flash()
 {
 #if RECORD_IN_FLASH_EN
     printf("Erasing flash \n");
@@ -89,11 +97,9 @@ void example_erase_flash(void)
 #endif
 }
 
-void example_set_file_play_mode(void)
-{
-    i2s_set_clk(EXAMPLE_I2S_NUM, 16000, EXAMPLE_I2S_SAMPLE_BITS, 1);
-}
-
+/**
+ * @brief debug buffer data
+ */
 void example_disp_buf(uint8_t* buf, int length)
 {
 #if EXAMPLE_I2S_BUF_DEBUG
@@ -108,11 +114,27 @@ void example_disp_buf(uint8_t* buf, int length)
 #endif
 }
 
-void example_reset_play_mode(void)
+/**
+ * @brief Reset i2s clock and mode
+ */
+void example_reset_play_mode()
 {
     i2s_set_clk(EXAMPLE_I2S_NUM, EXAMPLE_I2S_SAMPLE_RATE, EXAMPLE_I2S_SAMPLE_BITS, EXAMPLE_I2S_CHANNEL_NUM);
 }
 
+/**
+ * @brief Set i2s clock for example audio file
+ */
+void example_set_file_play_mode()
+{
+    i2s_set_clk(EXAMPLE_I2S_NUM, 16000, EXAMPLE_I2S_SAMPLE_BITS, 1);
+}
+
+/**
+ * @brief Scale data to 16bit/32bit for I2S DMA output.
+ *        DAC can only output 8bit data value.
+ *        I2S DMA will still send 16 bit or 32bit data, the highest 8bit contains DAC data.
+ */
 int example_i2s_dac_data_scale(uint8_t* d_buff, uint8_t* s_buff, uint32_t len)
 {
     uint32_t j = 0;
@@ -133,7 +155,41 @@ int example_i2s_dac_data_scale(uint8_t* d_buff, uint8_t* s_buff, uint32_t len)
 #endif
 }
 
+/**
+ * @brief Scale data to 8bit for data from ADC.
+ *        Data from ADC are 12bit width by default.
+ *        DAC can only output 8 bit data.
+ *        Scale each 12bit ADC data to 8bit DAC data.
+ */
+void example_i2s_adc_data_scale(uint8_t * d_buff, uint8_t* s_buff, uint32_t len)
+{
+    uint32_t j = 0;
+    uint32_t dac_value = 0;
+#if (EXAMPLE_I2S_SAMPLE_BITS == 16)
+    for (int i = 0; i < len; i += 2) {
+        dac_value = ((((uint16_t) (s_buff[i + 1] & 0xf) << 8) | ((s_buff[i + 0]))));
+        d_buff[j++] = 0;
+        d_buff[j++] = dac_value * 256 / 4096;
+    }
+#else
+    for (int i = 0; i < len; i += 4) {
+        dac_value = ((((uint16_t)(s_buff[i + 3] & 0xf) << 8) | ((s_buff[i + 2]))));
+        d_buff[j++] = 0;
+        d_buff[j++] = 0;
+        d_buff[j++] = 0;
+        d_buff[j++] = dac_value * 256 / 4096;
+    }
+#endif
+}
 
+/**
+ * @brief I2S ADC/DAC example
+ *        1. Erase flash
+ *        2. Record audio from ADC and save in flash
+ *        3. Read flash and replay the sound via DAC
+ *        4. Play an example audio file(file format: 8bit/8khz/single channel)
+ *        5. Loop back to step 3
+ */
 void example_i2s_adc_dac(void*arg)
 {
     const esp_partition_t *data_partition = NULL;
@@ -209,13 +265,26 @@ void example_i2s_adc_dac(void*arg)
     vTaskDelete(NULL);
 }
 
-
-esp_err_t app_main(){
-
-example_i2s_init();
-esp_log_level_set("I2S", ESP_LOG_INFO);
-xTaskCreate(example_i2s_adc_dac, "example_i2s_adc_dac", 1024 * 2, NULL, 5, NULL);
-    return ESP_OK;
-
-
+void adc_read_task(void* arg)
+{
+    adc1_config_width(ADC_WIDTH_12Bit);
+    adc1_config_channel_atten(ADC1_TEST_CHANNEL, ADC_ATTEN_11db);
+    esp_adc_cal_characteristics_t characteristics;
+    esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, V_REF, &characteristics);
+    while(1) {
+        uint32_t voltage;
+        esp_adc_cal_get_voltage(ADC1_TEST_CHANNEL, &characteristics, &voltage);
+        ESP_LOGI(TAG, "%d mV", voltage);
+        vTaskDelay(200 / portTICK_RATE_MS);
+    }
 }
+
+esp_err_t app_main()
+{
+    example_i2s_init();
+    esp_log_level_set("I2S", ESP_LOG_INFO);
+    xTaskCreate(example_i2s_adc_dac, "example_i2s_adc_dac", 1024 * 2, NULL, 5, NULL);
+    xTaskCreate(adc_read_task, "ADC read task", 2048, NULL, 5, NULL);
+    return ESP_OK;
+}
+
