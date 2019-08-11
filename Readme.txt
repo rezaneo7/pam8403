@@ -11,3 +11,8 @@
   in function "example_i2s_adc_data_scale"
 
 * The script will covert all signed values into unsigned values because only positive values will be output by the ADC.
+
+
+
+*we can use this code to record sound from adc of esp32 and then plat it back by dac.
+   just set these flags "RECORD_IN_FLASH_EN" && "REPLAY_FROM_FLASH_EN"
