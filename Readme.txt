@@ -16,3 +16,5 @@
 
 *we can use this code to record sound from adc of esp32 and then plat it back by dac.
    just set these flags "RECORD_IN_FLASH_EN" && "REPLAY_FROM_FLASH_EN"
+
+* first we should convert it to rate 16000, then convert it from stereo to mono
