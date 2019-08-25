@@ -1,4 +1,4 @@
-* The script in python provides an example of generating audio tables from `.wav` files.
+* The script in tools folder provides an example of generating audio tables from `.wav` files.
  just put the .wav file in tools folder and run script
 
 * In this example, the `wav` file must be in 16k/16bit mono format.
@@ -16,3 +16,5 @@
 
 *we can use this code to record sound from adc of esp32 and then plat it back by dac.
    just set these flags "RECORD_IN_FLASH_EN" && "REPLAY_FROM_FLASH_EN"
+
+* first we should convert it to rate 16000, then convert it from stereo to mono
