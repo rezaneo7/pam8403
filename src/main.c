@@ -14,7 +14,6 @@
 static const char* TAG = "ad/da";
 #define V_REF   1100
 #define ADC1_TEST_CHANNEL (ADC1_CHANNEL_7)
-
 #define PARTITION_NAME   "storage"
 
 /*---------------------------------------------------------------
@@ -284,7 +283,7 @@ esp_err_t app_main()
     example_i2s_init();
     esp_log_level_set("I2S", ESP_LOG_INFO);
     xTaskCreate(example_i2s_adc_dac, "example_i2s_adc_dac", 1024 * 2, NULL, 5, NULL);
-    xTaskCreate(adc_read_task, "ADC read task", 2048, NULL, 5, NULL);
+    //xTaskCreate(adc_read_task, "ADC read task", 2048, NULL, 5, NULL);
     return ESP_OK;
 }
 
