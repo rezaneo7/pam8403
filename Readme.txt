@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/rezaneo7/pam8403.svg?branch=master)](https://travis-ci.org/rezaneo7/pam8403)
+https://travis-ci.org/rezaneo7/pam8403.svg?branch=master
 
 * The script in tools folder provides an example of generating audio tables from `.wav` files.
  just put the .wav file in tools folder and run script
